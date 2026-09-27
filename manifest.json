@@ -1,0 +1,25 @@
+{
+  "name": "BUDDY — Attendance Companion",
+  "short_name": "BUDDY",
+  "description": "BUDDY helps AGC LMS students view all subject attendance, calculate classes to skip or attend, and stay above target.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "appId": "com.buddy.app",
+  "appName": "BUDDY",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#09090b",
+      "showSpinner": false
+    }
+  }
+}

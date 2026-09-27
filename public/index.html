@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>BUDDY — AGC LMS Attendance Companion</title>
+  <meta name="description"
+    content="BUDDY helps AGC LMS students view all subject attendance in one dashboard, calculate classes to skip or attend, and stay above target.">
+
+  <!-- Mobile App Manifest & Apple iOS Meta -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BUDDY">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="icon" href="logo.png" type="image/png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- ========== LOGIN OVERLAY ========== -->
+  <div class="login-overlay" id="loginOverlay">
+    <!-- Animated background orbs -->
+    <div class="login-bg">
+      <div class="orb"></div>
+      <div class="orb"></div>
+      <div class="orb"></div>
+      <div class="orb"></div>
+    </div>
+
+    <!-- Floating particles (JS will populate) -->
+    <div class="login-particles" id="loginParticles"></div>
+
+    <!-- Login Card -->
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="logo-icon"><img src="logo.png" alt="BUDDY Logo" class="brand-logo-img"></div>
+        <h1 class="brand-title">BUDDY</h1>
+        <p>AGC LMS Attendance Companion</p>
+      </div>
+
+      <div class="login-error" id="loginError">
+        <span class="alert-icon">⚠️</span>
+        <span id="loginErrorMsg">Invalid credentials. Please try again.</span>
+      </div>
+
+      <form id="loginForm" autocomplete="on">
+        <div class="form-group">
+          <label for="rollNumber">Student ID / Roll No</label>
+          <div class="input-wrapper">
+            <input type="text" id="rollNumber" name="username" placeholder="Enter your Student ID"
+              autocomplete="username" required>
+            <span class="input-icon">🎓</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="password" name="password" placeholder="Enter your Password"
+              autocomplete="current-password" required>
+            <span class="input-icon">🔒</span>
+            <button type="button" class="toggle-password" id="togglePassword"
+              aria-label="Toggle password visibility">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe">
+            Remember me
+          </label>
+        </div>
+
+        <button type="submit" class="btn-primary" id="loginBtn">
+          <span>
+            <span class="btn-text">Sign In</span>
+            <span class="spinner"></span>
+          </span>
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <span class="developer-highlight">👨‍💻 Developed by GURKIRAT SINGH</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MAIN APP ========== -->
+  <div class="app-container" id="appContainer">
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo"><img src="logo.png" alt="BUDDY Logo" class="brand-logo-img"></div>
+        <h2 class="brand-title">BUDDY</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="nav-item" data-view="calculator" id="nav-calculator">
+          <span class="nav-icon">🧮</span>
+          <span>Calculator</span>
+        </button>
+        <button class="nav-item" data-view="settings" id="nav-settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="nav-item logout-btn" id="logoutBtn">
+          <span class="nav-icon">🚪</span>
+          <span>Logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">☰</button>
+          <div class="header-greeting">
+            <h2 id="greetingText">Hello BUDDY 👋</h2>
+            <p id="greetingSubtext">Here's your attendance overview</p>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="header-btn refresh-btn" id="refreshBtn" aria-label="Refresh data"
+            title="Refresh attendance data">
+            <svg class="refresh-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+          <button class="header-btn" id="themeToggleBtn" aria-label="Toggle theme" title="Toggle theme">
+            🌙
+          </button>
+          <button class="header-btn" id="notifBtn" aria-label="Notifications">
+            🔔
+            <span class="badge" id="notifBadge">2</span>
+          </button>
+          <button class="profile-btn" id="profileBtn">
+            <div class="profile-avatar" id="profileAvatar">GS</div>
+            <span class="profile-name" id="profileName">Gurkirat</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Refresh Indicator -->
+      <div class="refresh-indicator" id="refreshIndicator">
+        <div class="refresh-spinner-bar"></div>
+        <span class="refresh-text">Refreshing attendance data...</span>
+      </div>
+
+      <div class="page-content">
+
+        <!-- ===== DASHBOARD VIEW ===== -->
+        <section class="view-section active" id="view-dashboard">
+
+          <!-- Quick Stats -->
+          <div class="stats-grid">
+            <div class="stat-card stat-card--overall">
+              <div class="stat-icon">📈</div>
+              <div class="stat-value" id="statOverall">—</div>
+              <div class="stat-label">Overall Attendance</div>
+            </div>
+            <div class="stat-card stat-card--attended">
+              <div class="stat-icon">✅</div>
+              <div class="stat-value" id="statAttended">—</div>
+              <div class="stat-label">Classes Attended</div>
+            </div>
+            <div class="stat-card stat-card--missed">
+              <div class="stat-icon">❌</div>
+              <div class="stat-value" id="statMissed">—</div>
+              <div class="stat-label">Classes Missed</div>
+            </div>
+            <div class="stat-card stat-card--streak">
+              <div class="stat-icon">🔥</div>
+              <div class="stat-value" id="statStreak">—</div>
+              <div class="stat-label">Day Streak</div>
+            </div>
+          </div>
+
+          <!-- Attendance Ring -->
+          <div class="dashboard-grid">
+            <div class="glass-card ring-card">
+              <div class="card-header">
+                <h3>Overall Attendance</h3>
+              </div>
+              <div class="attendance-ring-wrapper">
+                <div class="ring-container">
+                  <svg viewBox="0 0 200 200">
+                    <defs>
+                      <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#a78bfa" />
+                        <stop offset="50%" stop-color="#818cf8" />
+                        <stop offset="100%" stop-color="#38bdf8" />
+                      </linearGradient>
+                    </defs>
+                    <circle class="ring-bg" cx="100" cy="100" r="85" />
+                    <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="85" stroke-dasharray="534.07"
+                      stroke-dashoffset="534.07" />
+                  </svg>
+                  <div class="ring-center">
+                    <span class="ring-percentage" id="ringPercentage">0%</span>
+                    <span class="ring-label">Overall</span>
+                  </div>
+                </div>
+                <span class="ring-status" id="ringStatus">Loading...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alerts Section -->
+          <div class="alerts-section glass-card" id="alertsSection">
+            <div class="card-header">
+              <h3>⚡ Alerts & Recommendations</h3>
+            </div>
+            <div id="alertsList">
+              <!-- JS will populate -->
+            </div>
+          </div>
+
+          <!-- Subject Cards -->
+          <div class="glass-card" style="margin-bottom: 28px;">
+            <div class="card-header">
+              <h3>Subject-wise Attendance</h3>
+              <span class="card-badge" id="subjectCount">Subjects</span>
+            </div>
+            <div class="subjects-grid" id="subjectsGrid">
+              <!-- JS will populate -->
+            </div>
+          </div>
+
+          <!-- Calendar Heatmap -->
+          <div class="glass-card calendar-heatmap-section">
+            <div class="card-header">
+              <h3>📅 Attendance Calendar</h3>
+              <span class="card-badge">Last 90 Days</span>
+            </div>
+            <div class="heatmap-grid" id="heatmapGrid">
+              <!-- JS will populate -->
+            </div>
+            <div class="heatmap-legend">
+              <span>Less</span>
+              <div class="legend-cell heatmap-cell empty"></div>
+              <div class="legend-cell heatmap-cell level-0"></div>
+              <div class="legend-cell heatmap-cell level-1"></div>
+              <div class="legend-cell heatmap-cell level-2"></div>
+              <div class="legend-cell heatmap-cell level-3"></div>
+              <div class="legend-cell heatmap-cell level-4"></div>
+              <span>More</span>
+            </div>
+          </div>
+
+        </section>
+
+
+
+        <!-- ===== CALCULATOR VIEW ===== -->
+        <section class="view-section" id="view-calculator">
+          <div class="calculator-header">
+            <h2>🧮 Attendance Calculator</h2>
+            <p>Set your target and see how many classes you can skip or need to attend.</p>
+          </div>
+
+          <div class="target-slider-card">
+            <div class="slider-header">
+              <h3>🎯 Target Attendance</h3>
+              <span class="target-value" id="targetDisplay">75%</span>
+            </div>
+            <input type="range" class="target-slider" id="targetSlider" min="50" max="100" value="75" step="1">
+            <div
+              style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">
+              <span>50%</span>
+              <span>75% (Recommended)</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="calc-results-grid" id="calcResultsGrid">
+            <!-- JS will populate -->
+          </div>
+        </section>
+
+        <!-- ===== SETTINGS VIEW ===== -->
+        <section class="view-section" id="view-settings">
+          <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 28px;">⚙️ Settings</h2>
+
+          <div class="settings-section">
+            <h3>👤 Profile</h3>
+            <div class="settings-card">
+              <div class="setting-row">
+                <div class="setting-label">
+                  <h4>Student Name</h4>
+                  <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
+                    <input type="text" id="settingNameInput" value="Student" placeholder="Enter your full name"
+                      style="padding: 8px 12px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.9rem; outline: none; width: 220px;">
+                    <button class="btn-secondary" id="saveNameBtn"
+                      style="padding: 8px 14px; font-size: 0.8rem;">Save</button>
+                  </div>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <h4>Roll Number</h4>
+                  <p id="settingRoll">—</p>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <h4>College</h4>
+                  <p>Amritsar Group of Colleges (AGC LMS)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>🎨 Appearance</h3>
+            <div class="settings-card">
+              <div class="setting-row">
+                <div class="setting-label">
+                  <h4>Dark Mode</h4>
+                  <p>Switch between dark and light theme</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="darkModeToggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>🎯 Preferences</h3>
+            <div class="settings-card">
+              <div class="setting-row">
+                <div class="setting-label">
+                  <h4>Default Target Attendance</h4>
+                  <p>Set the default target for the calculator</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="number" id="defaultTarget" value="75" min="50" max="100"
+                    style="width: 65px; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); text-align: center; font-size: 0.9rem; outline: none;">
+                  <span style="color: var(--text-secondary);">%</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <h4>Warning Threshold</h4>
+                  <p>Get alerts when attendance falls below this</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="number" id="warningThreshold" value="80" min="50" max="100"
+                    style="width: 65px; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); text-align: center; font-size: 0.9rem; outline: none;">
+                  <span style="color: var(--text-secondary);">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style="text-align: center; margin-top: 40px; color: var(--text-muted); font-size: 0.82rem; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <p>BUDDY v2.0 — <span class="developer-highlight">👨‍💻 Developed by GURKIRAT SINGH</span></p>
+            <p style="margin-top: 2px;">College Portal: Amritsar Group of Colleges (agclms.in)</p>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+
+
+  <!-- ========== DAILY RECORDS LOG MODAL ========== -->
+  <div class="modal-overlay" id="dailyRecordsModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <div>
+          <h3 id="recordsModalTitle">Daily Attendance Record</h3>
+          <p id="recordsModalSubtitle" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+            Day-by-day attendance log</p>
+        </div>
+        <button class="modal-close" id="closeRecordsModal" aria-label="Close modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Filter Controls -->
+        <div class="records-filter-bar">
+          <div class="filter-pills">
+            <button class="record-filter-pill active" data-filter="all" id="filterAllDays">All Days (<span
+                id="countAllDays">0</span>)</button>
+            <button class="record-filter-pill" data-filter="present" id="filterPresentDays">Present (<span
+                id="countPresentDays">0</span>)</button>
+            <button class="record-filter-pill" data-filter="absent" id="filterAbsentDays">Absent (<span
+                id="countAbsentDays">0</span>)</button>
+          </div>
+          <input type="text" id="searchRecordsInput" class="records-search-input"
+            placeholder="🔍 Search date or topic...">
+        </div>
+
+        <!-- Records Table List -->
+        <div class="records-table-wrapper">
+          <table class="daily-records-table">
+            <thead>
+              <tr>
+                <th>Lec #</th>
+                <th>Date</th>
+                <th>Lecture / Topic</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="dailyRecordsTableBody">
+              <!-- JS rendered rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="closeRecordsModalBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW reg error:', err));
+      });
+    }
+  </script>
+
+</body>
+
+</html>

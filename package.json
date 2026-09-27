@@ -1,0 +1,19 @@
+{
+  "name": "easy-attendance",
+  "version": "1.0.0",
+  "description": "BUDDY — Track your college attendance from AGC LMS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "GURKIRAT SINGH",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.21.0"
+  }
+}
