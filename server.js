@@ -381,7 +381,9 @@ app.post('/api/fetch-attendance', async (req, res) => {
     const universalSubjects = parseSubjectsFromHtml(dashHtml, cheerio);
     const subjects = reportSubjects.length > 0 ? reportSubjects : universalSubjects;
 
-    console.log(`[AGC-LMS API] Successfully extracted ${subjects.length} subject attendance records for ${studentName}`);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     return res.json({
       success: true,

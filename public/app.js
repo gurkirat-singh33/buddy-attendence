@@ -79,6 +79,7 @@
   const profileName = $('#profileName');
   const themeToggleBtn = $('#themeToggleBtn');
   const notifBadge = $('#notifBadge');
+  const headerRollNumber = $('#headerRollNumber');
 
   // Dashboard
   const statOverall = $('#statOverall');
@@ -154,7 +155,7 @@
 
   // ───────── Greeting ─────────
   function updateGreeting() {
-    greetingText.textContent = `Hello BUDDY 👋`;
+    if (greetingText) greetingText.textContent = `Hello BUDDY 👋`;
 
     let name = state.studentName;
     if (!name || /detail|mentorship|gurkirat|home|dashboard|welcome|portal|navigation|menu|incharge|mentor|faculty|teacher|hod|dr|prof|coordinator/i.test(name)) {
@@ -165,21 +166,27 @@
 
     const firstName = name.split(' ')[0];
     const total = getTotals();
-    if (total.totalClasses === 0) {
-      greetingSubtext.textContent = 'Add your subjects to get started';
-    } else if (name !== 'Student' && !name.startsWith('Student ')) {
-      greetingSubtext.textContent = `Student: ${name} • Roll: ${state.rollNumber || '—'}`;
-    } else {
-      greetingSubtext.textContent = `Roll No: ${state.rollNumber || '—'} • Attendance Overview`;
+    if (greetingSubtext) {
+      if (total.totalClasses === 0) {
+        greetingSubtext.textContent = 'Add your subjects to get started';
+      } else if (name !== 'Student' && !name.startsWith('Student ')) {
+        greetingSubtext.textContent = `Student: ${name} • Roll: ${state.rollNumber || '—'}`;
+      } else {
+        greetingSubtext.textContent = `Roll No: ${state.rollNumber || '—'} • Attendance Overview`;
+      }
     }
 
-    profileAvatar.textContent = getInitials(name);
-    profileName.textContent = firstName;
+    if (headerRollNumber) {
+      headerRollNumber.textContent = state.rollNumber || '—';
+    }
+
+    if (profileAvatar) profileAvatar.textContent = getInitials(name);
+    if (profileName) profileName.textContent = firstName;
     const nameInput = $('#settingNameInput');
     if (nameInput && document.activeElement !== nameInput) {
       nameInput.value = name;
     }
-    settingRoll.textContent = state.rollNumber || '—';
+    if (settingRoll) settingRoll.textContent = state.rollNumber || '—';
   }
 
   function getInitials(name) {
@@ -256,7 +263,32 @@
     animateCounter(statOverall, totals.overallPct, '%');
     animateCounter(statAttended, totals.totalAttended);
     animateCounter(statMissed, totals.totalMissed);
-    animateCounter(statStreak, state.streak);
+
+    // All-Day Streak calculation
+    const streak = calculateAllDayStreak(state.subjects);
+    state.streak = streak;
+    animateCounter(statStreak, streak);
+
+    const statStreakSubtext = $('#statStreakSubtext');
+    const statCardStreak = $('#statCardStreak');
+    if (statStreakSubtext) {
+      if (streak === 0) {
+        statStreakSubtext.textContent = 'Streak lost (lecture missed)';
+      } else if (streak === 1) {
+        statStreakSubtext.textContent = '1 day all lectures attended';
+      } else {
+        statStreakSubtext.textContent = `${streak} days all lectures attended`;
+      }
+    }
+    if (statCardStreak) {
+      if (streak === 0) {
+        statCardStreak.classList.remove('streak-active');
+        statCardStreak.classList.add('streak-lost');
+      } else {
+        statCardStreak.classList.remove('streak-lost');
+        statCardStreak.classList.add('streak-active');
+      }
+    }
 
     // Ring
     const circumference = 2 * Math.PI * 85; // ~534.07
@@ -504,30 +536,47 @@
 
   function handleRefresh() {
     if (isRefreshing || !state.loggedIn) return;
+
+    // Retrieve saved credentials from session or local storage or DOM inputs
+    let roll = state.rollNumber || localStorage.getItem('buddy_auth_roll') || (rollInput ? rollInput.value.trim() : '');
+    let pass = sessionStorage.getItem('buddy_session_pass') || localStorage.getItem('buddy_auth_pass') || (passInput ? passInput.value.trim() : '');
+
+    if (!pass) {
+      pass = prompt('Enter your AGC LMS Password to refresh live attendance:');
+      if (!pass || !pass.trim()) {
+        showToast('Password required to sync with AGC LMS portal.', 'warning');
+        return;
+      }
+      pass = pass.trim();
+      localStorage.setItem('buddy_auth_pass', pass);
+      sessionStorage.setItem('buddy_session_pass', pass);
+      if (roll) localStorage.setItem('buddy_auth_roll', roll);
+    } else {
+      // Keep synchronized in both storages
+      localStorage.setItem('buddy_auth_pass', pass);
+      sessionStorage.setItem('buddy_session_pass', pass);
+      if (roll) localStorage.setItem('buddy_auth_roll', roll);
+    }
+
     isRefreshing = true;
 
     // Visual feedback
     if (refreshBtn) refreshBtn.classList.add('refreshing');
+    const dashboardRefreshBtn = $('#dashboardRefreshBtn');
+    const sidebarRefreshBtn = $('#sidebarRefreshBtn');
+    if (dashboardRefreshBtn) dashboardRefreshBtn.classList.add('refreshing');
+    if (sidebarRefreshBtn) sidebarRefreshBtn.classList.add('refreshing');
     if (refreshIndicator) refreshIndicator.classList.add('active');
 
-    // Retrieve saved password from session or prompt
-    const savedPassword = sessionStorage.getItem('buddy_session_pass');
-
-    if (!savedPassword) {
-      // If no saved password, just re-render with existing data
-      showToast('Re-rendering with cached data...', 'info');
-      setTimeout(() => {
-        renderAll();
-        finishRefresh(true);
-      }, 800);
-      return;
-    }
-
-    // Call backend to re-fetch attendance
+    // Call backend API with no-cache to re-fetch live attendance from agclms.in
     fetch('/api/fetch-attendance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rollNumber: state.rollNumber, password: savedPassword })
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store'
+      },
+      cache: 'no-store',
+      body: JSON.stringify({ rollNumber: roll, password: pass })
     })
     .then(res => res.json())
     .then(data => {
@@ -536,10 +585,11 @@
         if (data.subjects && data.subjects.length > 0) {
           state.subjects = data.subjects;
         }
+        state.streak = calculateAllDayStreak(state.subjects);
         saveState();
         renderAll();
         finishRefresh(true);
-        showToast('Attendance data refreshed successfully!', 'success');
+        showToast('Attendance data refreshed successfully from AGC LMS!', 'success');
       } else {
         finishRefresh(false);
         showToast('Could not refresh: ' + (data.message || 'Unknown error'), 'error');
@@ -550,13 +600,17 @@
       // On network error, just re-render existing data
       renderAll();
       finishRefresh(false);
-      showToast('Offline — showing cached data', 'error');
+      showToast('Offline — could not reach LMS server', 'error');
     });
   }
 
   function finishRefresh(success) {
     isRefreshing = false;
     if (refreshBtn) refreshBtn.classList.remove('refreshing');
+    const dashboardRefreshBtn = $('#dashboardRefreshBtn');
+    const sidebarRefreshBtn = $('#sidebarRefreshBtn');
+    if (dashboardRefreshBtn) dashboardRefreshBtn.classList.remove('refreshing');
+    if (sidebarRefreshBtn) sidebarRefreshBtn.classList.remove('refreshing');
     if (refreshIndicator) refreshIndicator.classList.remove('active');
   }
 
@@ -596,10 +650,12 @@
           state.subjects = [];
           showToast('Logged in! No subject attendance found on dashboard.', 'info');
         }
-        state.streak = 7;
+        state.streak = calculateAllDayStreak(state.subjects);
         saveState();
 
-        // Save password for refresh functionality (session only)
+        // Save credentials for live refresh and auto-sync
+        localStorage.setItem('buddy_auth_pass', pass);
+        localStorage.setItem('buddy_auth_roll', roll);
         sessionStorage.setItem('buddy_session_pass', pass);
 
         showApp();
@@ -644,6 +700,8 @@
     state.loggedIn = false;
     saveState();
     sessionStorage.removeItem('buddy_session_pass');
+    localStorage.removeItem('buddy_auth_pass');
+    localStorage.removeItem('buddy_auth_roll');
     loginOverlay.classList.remove('hidden');
     appContainer.classList.remove('active');
     rollInput.value = '';
@@ -696,14 +754,24 @@
     logoutBtn.addEventListener('click', handleLogout);
 
     // Theme
-    themeToggleBtn.addEventListener('click', handleThemeToggle);
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', handleThemeToggle);
+    }
     darkModeToggle.addEventListener('change', () => {
       applyTheme(darkModeToggle.checked ? 'dark' : 'light');
     });
 
-    // Refresh button
+    // Refresh buttons
     if (refreshBtn) {
       refreshBtn.addEventListener('click', handleRefresh);
+    }
+    const dashboardRefreshBtn = $('#dashboardRefreshBtn');
+    if (dashboardRefreshBtn) {
+      dashboardRefreshBtn.addEventListener('click', handleRefresh);
+    }
+    const sidebarRefreshBtn = $('#sidebarRefreshBtn');
+    if (sidebarRefreshBtn) {
+      sidebarRefreshBtn.addEventListener('click', handleRefresh);
     }
 
     // Calculator slider
@@ -741,9 +809,23 @@
       renderAll();
     });
 
-    // Profile button — navigate to settings
-    $('#profileBtn').addEventListener('click', () => switchView('settings'));
-    $('#notifBtn').addEventListener('click', () => switchView('dashboard'));
+    // Profile & Notif buttons (safe null checks)
+    const profileBtn = $('#profileBtn');
+    if (profileBtn) profileBtn.addEventListener('click', () => switchView('settings'));
+    const notifBtn = $('#notifBtn');
+    if (notifBtn) notifBtn.addEventListener('click', () => switchView('dashboard'));
+
+    // Top Header Sticky shadow on scroll
+    window.addEventListener('scroll', () => {
+      const topHeader = $('.top-header');
+      if (topHeader) {
+        if (window.scrollY > 8) {
+          topHeader.classList.add('scrolled');
+        } else {
+          topHeader.classList.remove('scrolled');
+        }
+      }
+    }, { passive: true });
 
     // Resize handler
     let resizeTimer;
@@ -774,9 +856,98 @@
     });
   }
 
-  // ───────── Daily Attendance Records Modal ─────────
+  // ───────── All-Day Streak & Daily Records ─────────
   let activeModalSubject = null;
   let activeRecordFilter = 'all';
+
+  function getCollegeDates(count) {
+    const dates = [];
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    while (dates.length < count) {
+      if (d.getDay() !== 0) {
+        dates.unshift(new Date(d));
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return dates;
+  }
+
+  function parseRecordDate(dateStr) {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+    const str = String(dateStr).trim();
+    const dmyMatch = str.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})$/);
+    if (dmyMatch) {
+      return new Date(parseInt(dmyMatch[3], 10), parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
+    }
+    const ymdMatch = str.match(/^(\d{4})[\/\.-](\d{1,2})[\/\.-](\d{1,2})$/);
+    if (ymdMatch) {
+      return new Date(parseInt(ymdMatch[1], 10), parseInt(ymdMatch[2], 10) - 1, parseInt(ymdMatch[3], 10));
+    }
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  }
+
+  function getDayKey(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // ───────── All-Day Streak Feature ─────────
+  // A streak day is a college day where the student attended ALL lectures scheduled across all subjects.
+  // If the student missed ANY lecture on that day (e.g. 1 or more Absent), the streak breaks.
+  // The streak counts consecutive 100%-attendance days backwards from the most recent day.
+  // If on the most recent day any lecture was missed, the streak is lost and remains 0.
+  function calculateAllDayStreak(subjects) {
+    if (!Array.isArray(subjects) || subjects.length === 0) return 0;
+
+    // Ensure all subjects have daily logs
+    subjects.forEach(sub => ensureDailyRecords(sub));
+
+    const dayMap = new Map();
+
+    subjects.forEach(sub => {
+      const records = sub.dailyRecords || [];
+      records.forEach(r => {
+        const d = parseRecordDate(r.date);
+        if (!d) return;
+        const key = getDayKey(d);
+        if (!dayMap.has(key)) {
+          dayMap.set(key, { dateObj: d, total: 0, attended: 0, missed: 0 });
+        }
+        const dayData = dayMap.get(key);
+        dayData.total++;
+        const s = String(r.status || '').toLowerCase();
+        if (s.includes('present') || s === 'p') {
+          dayData.attended++;
+        } else if (s.includes('absent') || s === 'a') {
+          dayData.missed++;
+        }
+      });
+    });
+
+    if (dayMap.size === 0) return 0;
+
+    // Sort days chronologically ascending
+    const sortedDays = Array.from(dayMap.values()).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+    // Evaluate streak backwards from the most recent day
+    let streak = 0;
+    for (let i = sortedDays.length - 1; i >= 0; i--) {
+      const day = sortedDays[i];
+      // If student missed ANY lecture on this day, streak breaks immediately!
+      if (day.missed > 0 || day.attended < day.total) {
+        break;
+      }
+      streak++;
+    }
+
+    return streak;
+  }
 
   function ensureDailyRecords(sub) {
     if (Array.isArray(sub.dailyRecords) && sub.dailyRecords.length === sub.total && sub.total > 0) {
@@ -792,11 +963,20 @@
     for (let i = 0; i < total; i++) statusList.push('Present');
     
     if (total > 0 && absentCount > 0) {
-      const step = Math.max(1, Math.floor(total / absentCount));
       let setAbsents = 0;
-      for (let i = step - 1; i < total && setAbsents < absentCount; i += step) {
+      const safeRecent = Math.min(4, Math.max(0, total - absentCount));
+      const range = Math.max(1, total - safeRecent);
+      const step = Math.max(1, Math.floor(range / absentCount));
+
+      for (let i = Math.floor(step / 2); i < range && setAbsents < absentCount; i += step) {
         statusList[i] = 'Absent';
         setAbsents++;
+      }
+      for (let i = range - 1; i >= 0 && setAbsents < absentCount; i--) {
+        if (statusList[i] !== 'Absent') {
+          statusList[i] = 'Absent';
+          setAbsents++;
+        }
       }
       for (let i = total - 1; i >= 0 && setAbsents < absentCount; i--) {
         if (statusList[i] !== 'Absent') {
@@ -806,16 +986,11 @@
       }
     }
 
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - Math.max(30, total * 2));
+    const collegeDates = getCollegeDates(total);
 
-    let currDate = new Date(startDate);
     for (let i = 0; i < total; i++) {
-      if (currDate.getDay() === 0) {
-        currDate.setDate(currDate.getDate() + 1);
-      }
-      const formattedDate = currDate.toLocaleDateString('en-GB', {
+      const dateObj = collegeDates[i] || new Date();
+      const formattedDate = dateObj.toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric'
       });
 
@@ -825,8 +1000,6 @@
         status: statusList[i],
         topic: `${sub.code !== 'N/A' ? sub.code : 'Unit ' + (Math.floor(i / 8) + 1)} — Lecture ${i + 1}`
       });
-
-      currDate.setDate(currDate.getDate() + 1);
     }
 
     sub.dailyRecords = records;
